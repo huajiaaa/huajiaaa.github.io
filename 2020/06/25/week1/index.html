@@ -18,8 +18,24 @@
 <p>文章介绍了一种场景: 我们对 Prometheus 的远程节点查询数据时, 如果远程节点没有完全挂掉, 而是只响应部分的请求/返回部分数据怎么办？编写能够应对这种丢失数据场景的的表达式(PromQL)可并不容易。</p>
 <p>Prometheus 的做法是, 如果对某个远程节点的一个查询请求失败, 则认为对该端点的其他请求均为失败。用户应该允许远程端点处于挂掉的状态(或者说应该有这个意识或准备)。 这样的好处是, 对这种场景(部分故障)的处理不会增加额外的复杂性(部分故障视作完全故障来处理)。</p>
 <p>算是一种设计哲学吧。</p>
-<h1 id="Tip"><a href="#Tip" class="headerlink" title="Tip"></a>Tip</h1><p>TODO</p>
-<h1 id="Share"><a href="#Share" class="headerlink" title="Share"></a>Share</h1><p>TODO</p>
+<h1 id="Tip"><a href="#Tip" class="headerlink" title="Tip"></a>Tip</h1><p>《Redis深度历险》里看到的：通常我们会用 Kafka、AliMQ 等消息队列中间件，这些中间件当然很专业，但也很重，有时候我们并不需要那么多高级的特性或功能，而是只需要一组消费者。</p>
+<p>这时候可以用 Redis 来代替: producer 使用 lpush, consumer 使用 rpop；或者 producer 使用 rpush, consumer 使用 lpop。</p>
+<p><img src="https://raw.githubusercontent.com/huajiaaa/huajiaaa.github.io/master/picture/redis_lpop_rpush.png" alt="Redis 的&quot;消息队列&quot;示意图"></p>
+<p>另外的几个”小技巧”：</p>
+<p><strong>小技巧</strong></p>
+<p>如果队列空了, 为了防止空轮询徒增 CPU 消耗，简单的方法是用 sleep， 更好的做法是用 blpop/brpop 代替前边的lpop/rpop：b 代表 blocking，即阻塞读——队列没有数据时, 会进入休眠状态，一旦有数据(消息)到来，则立即醒过来。但如果太长时间没有消息，Redis 的客户端连接就成了闲置链接，服务器一般会主动断开连接，减少闲置资源占用。此时 blpop/brpop 会抛出异常，因此在编写代码的时候需要考虑到这个场景，捕获异常并重试。</p>
+<h1 id="Share"><a href="#Share" class="headerlink" title="Share"></a>Share</h1><p><a href="https://zhuanlan.zhihu.com/p/141027477" target="_blank" rel="noopener">早期架构设计问题</a></p>
+<p>文中两点说得很好:</p>
+<ul>
+<li><p>高以下为基，贵以贱为本</p>
+</li>
+<li><p>在设计架构的时候要做好”多步策略”的打算</p>
+</li>
+</ul>
+<p>什么意思呢？个人的理解是:</p>
+<p>架构设计一定要以能落地为前提，不能纸上谈兵。有些方案，一切写的都太完美了，当然特别符合理论，但实际上可能当前团队根本没有这个能力或者条件去按照这个设计去实行。这种设计就变成了一种浮华的”炫技”。</p>
+<p>另外，设计时也要有长远的眼光，不能只根据当前的条件，去设计一些刚好能去实行的方案；而是需要考虑未来可能的各种变化，为未来的发展或壮大留下空间。</p>
+<p>(小声哔哔：这种思想真的是老生常谈了哈….)</p>
 </div><div class="tags"><a href="/tags/打卡/">打卡</a></div><div class="post-nav"><a class="pre" href="/2020/06/25/ARTS/">什么是 ARTS</a><a class="next" href="/2020/06/23/2020-6-23/">有关刷题这件小事</a></div><div id="container"></div><link rel="stylesheet" type="text/css" href="//unpkg.com/gitalk/dist/gitalk.css?v=0.0.0"><script type="text/javascript" src="//cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js?v=0.0.0"></script><script type="text/javascript" src="//unpkg.com/gitalk/dist/gitalk.min.js?v=0.0.0"></script><script>var gitalk = new Gitalk({
   clientID: '9068028cdf34808763a3',
   clientSecret: '6a7ac29d31bad8013d5348db4292442adfc4c097',
