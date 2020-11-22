@@ -17,7 +17,36 @@
 <li>简单的 gRPC Store API, 可跨所有 metric 数据进行统一的数据访问</li>
 <li>为自定义 metric 提供了轻松的集成点</li>
 </ul>
-<h1 id="架构图"><a href="#架构图" class="headerlink" title="架构图"></a>架构图</h1><p><img src="https://raw.githubusercontent.com/thanos-io/thanos/master/docs/img/arch.jpg" alt="Thanos 架构"></p>
+<h1 id="整体架构"><a href="#整体架构" class="headerlink" title="整体架构"></a>整体架构</h1><p><img src="https://raw.githubusercontent.com/thanos-io/thanos/master/docs/img/arch.jpg" alt="Thanos 架构"></p>
+<p>Thanos 是由多个组件组成的集群体统, 这些组件可大体分类如下：</p>
+<ul>
+<li>Metric sources</li>
+<li>Stores</li>
+<li>Queriers</li>
+</ul>
+<h2 id="Metric-Sources"><a href="#Metric-Sources" class="headerlink" title="Metric Sources"></a>Metric Sources</h2><p>数据源是对于一个生成/采集 metric 数据的组件的非常笼统的定义.  可以通过 gRPC 服务查询这些 metric 数据.</p>
+<p>Thanos 提供了两个充当数据源的组件: prometheus sidecar 和 rule nodes.</p>
+<p>其中, Sidecar 在 prometheus 的 HTTP 和 远程读取 API 的基础上实现了 gRPC 服务; 而 rule node 则通过直接运行在 prometheus 的存储引擎上来实现.</p>
+<h3 id="Metric-Data-Backup"><a href="#Metric-Data-Backup" class="headerlink" title="Metric Data Backup"></a>Metric Data Backup</h3><p>metric 数据长期存储的数据源通过 prometheus 2.0 存储引擎实现. </p>
+<p>存储引擎会定期地生成固定时间范围内的不可变数据块.<br>数据块是一个具有大文件的目录, 其中包含了所有版本数据和检索数据所需的持久索引, 格式如下所示：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">01BX6V6TY06G5MFQ0GPH7EMXRH</span><br><span class="line">├── chunks</span><br><span class="line">│   ├── 000001</span><br><span class="line">│   ├── 000002</span><br><span class="line">│   └── 000003</span><br><span class="line">├── index</span><br><span class="line">└── meta.json</span><br></pre></td></tr></table></figure>
+
+<p>数据块的顶层目录是一个 ULID, 它像一个 UUID 但是是字典序的并且能够解码成创建时间.</p>
+<ul>
+<li>chunks 目录下包含多个块, 每个块中存储了一个 series, 大概有几百兆大小.</li>
+<li>index 文件包含通过标签和数据块位置查询特定的时间序列所需的所有信息.</li>
+<li>meta.json 包含了有关数据块的元信息, 比如: 统计信息、时间范围和压缩等级.</li>
+</ul>
+<p>这些块文件可以备份到一个对象存储, 并且能够被其他的组件查询. 当 prometheus 服务器或存储引擎创建数据的时候, 这些数据会被上传.<br>meta.json 文件能够被 thanos 扩展, 可以向其中添加 thanos 特殊的元信息. 当前, 它包括该数据块的生产者赋予的外部标签. 这些标签有助于过滤掉数据块以进行查询, 而无需访问它们的数据文件. </p>
+<p>meta.json 在 sidecar 上传数据的时候被更新.</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">┌────────────┬─────────┐         ┌────────────┬─────────┐     ┌─────────┐</span><br><span class="line">│ Prometheus │ Sidecar │   ...   │ Prometheus │ Sidecar │     │   Rule  │</span><br><span class="line">└────────────┴────┬────┘         └────────────┴────┬────┘     └┬────────┘</span><br><span class="line">                  │                                │           │</span><br><span class="line">                Blocks                           Blocks      Blocks</span><br><span class="line">                  │                                │           │</span><br><span class="line">                  v                                v           v</span><br><span class="line">              ┌──────────────────────────────────────────────────┐</span><br><span class="line">              │                   Object Storage                 │</span><br><span class="line">              └──────────────────────────────────────────────────┘</span><br></pre></td></tr></table></figure>
+
+<h2 id="Stores"><a href="#Stores" class="headerlink" title="Stores"></a>Stores</h2><p>存储节点是存储在对象存储桶中的块数据的网关, 它实现了与数据源相同的 gRPC api 以提供了对于所有 metric 数据的访问.<br>它持续地同步桶中已存在的块, 并且把对 metric 数据的请求转换成对象存储的请求. 它实现了多种策略从而最小化对对象存储的请求/查询数量, 例如通过元数据(时间范围和标签)过滤相关块, 并且缓存频繁查找的索引(index).</p>
+<p>存储节点知道文件的布局并且把数据请求转换成可以最小化查询对象存储数量请求的计划. 每个请求可能一次拉取数十万个 chunk. 这对于满足对对象存储的有限请求的大型查询至关重要.</p>
+<p>目前只有索引数据被缓存. 虽然 chunk 数据也可以缓存, 但是对空间的要求要大几个数量级. 在当前的状态下, 从对象存储中获取数据仅占端到端延迟的一小部分. 因此, 暂时还没有动力把 chunk 缓存下来.</p>
+<h2 id="Stores-amp-Data-Sources-It’s-all-the-same"><a href="#Stores-amp-Data-Sources-It’s-all-the-same" class="headerlink" title="Stores &amp; Data Sources - It’s all the same"></a>Stores &amp; Data Sources - It’s all the same</h2><p>由于存储节点和数据源都实现了相同的 gRPC api, 所以客户端可以把它们视为同等的, 不需要关注正在查询哪个组件. Store api 的每个实现者会发布有关它们提供数据的元信息, 这使得客户端在进行特定数据的查询时, 可以最大程度地减少扇出的节点集.<br>本质上讲, Store API 允许通过 PromQL 查询数据. 它返回的是在 block 中查到的样本压缩块. 它纯粹是一个数据查询的 API, 而不提供复杂的查询执行.</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">┌──────────────────────┐  ┌────────────┬─────────┐   ┌────────────┐</span><br><span class="line">│ Google Cloud Storage │  │ Prometheus │ Sidecar │   │    Rule    │</span><br><span class="line">└─────────────────┬────┘  └────────────┴────┬────┘   └─┬──────────┘</span><br><span class="line">                  │                         │          │</span><br><span class="line">         Block File Ranges                  │          │</span><br><span class="line">                  │                     Store API      │</span><br><span class="line">                  v                         │          │</span><br><span class="line">                ┌──────────────┐            │          │</span><br><span class="line">                │     Store    │            │      Store API</span><br><span class="line">                └────────┬─────┘            │          │</span><br><span class="line">                         │                  │          │</span><br><span class="line">                     Store API              │          │</span><br><span class="line">                         │                  │          │</span><br><span class="line">                         v                  v          v</span><br><span class="line">                       ┌──────────────────────────────────┐</span><br><span class="line">                       │              Client              │</span><br><span class="line">                       └──────────────────────────────────┘</span><br></pre></td></tr></table></figure>
+
 <h1 id="设计哲学"><a href="#设计哲学" class="headerlink" title="设计哲学"></a>设计哲学</h1><ul>
 <li>每个子命令都应该做一件事并把它做好</li>
 <li>编写可以协同工作的组件</li>
@@ -25,6 +54,7 @@
 </ul>
 <h1 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h1><ul>
 <li><a href="https://github.com/thanos-io/thanos" target="_blank" rel="noopener">https://github.com/thanos-io/thanos</a></li>
+<li><a href="https://thanos.io/tip/thanos/design.md/#" target="_blank" rel="noopener">https://thanos.io/tip/thanos/design.md/#</a></li>
 </ul>
 </div><div class="tags"><a href="/tags/大监控/">大监控</a></div><div class="post-nav"><a class="next" href="/2019/09/15/2019-9-15/">我为什么会惆怅</a></div><div id="container"></div><link rel="stylesheet" type="text/css" href="//unpkg.com/gitalk/dist/gitalk.css?v=0.0.0"><script type="text/javascript" src="//cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js?v=0.0.0"></script><script type="text/javascript" src="//unpkg.com/gitalk/dist/gitalk.min.js?v=0.0.0"></script><script>var gitalk = new Gitalk({
   clientID: '9068028cdf34808763a3',
