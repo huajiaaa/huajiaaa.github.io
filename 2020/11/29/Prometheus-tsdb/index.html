@@ -18,7 +18,7 @@
 </li>
 </ul>
 <p>metric name 也被视为一个标签, 用 <strong>${metricName}</strong> 表示, 因此上述例子也可以表示为：{<strong>name</strong>=”requests_total”, path=”/status”, method=”GET”, instance=”10.0.0.1:80”}</p>
-<h3 id="场景需求"><a href="#场景需求" class="headerlink" title="场景需求"></a>场景需求</h3><p><img src="https://raw.githubusercontent.com/huajiaaa/huajiaaa.github.io/master/picture/prometheus%E8%AF%BB%E5%86%99%E7%A4%BA%E6%84%8F%E5%9B%BE.png" alt="prometheus 的读写场景"></p>
+<h3 id="场景需求"><a href="#场景需求" class="headerlink" title="场景需求"></a>场景需求</h3><p><img src="https://raw.githubusercontent.com/huajiaaa/huajiaaa.github.io/master/picture/prometheus%E8%AF%BB%E5%86%99%E7%A4%BA%E6%84%8F%E5%9B%BE.png" alt></p>
 <p>如上图所示, 其中, 横轴是时间 t, 纵轴是 identifier, 平面上的点是 v：</p>
 <ol>
 <li>写需求<ol>
@@ -35,9 +35,9 @@
 </li>
 </ol>
 <h4 id="k8s-环境下特有的现象——-series-churn"><a href="#k8s-环境下特有的现象——-series-churn" class="headerlink" title="k8s 环境下特有的现象—— series churn"></a>k8s 环境下特有的现象—— series churn</h4><p>通常, metric 中都会有 instance 标签. 而在 k8s 环境下, 由于 pod 是经常变化的（比如滚动升级时）, 会导致「series churn」（不会翻译就不翻译了）, 如下图所示（即很多老 series 其实是不需要的）：</p>
-<p><img src="https://raw.githubusercontent.com/huajiaaa/huajiaaa.github.io/master/picture/series-churn.png" alt="series churn 示意图"></p>
+<p><img src="https://raw.githubusercontent.com/huajiaaa/huajiaaa.github.io/master/picture/series-churn.png" alt></p>
 <p>介绍完了 Prometheus 的场景特点以及对数据库的使用需求, 接下来介绍 Prometheus 所使用的 tsdb 是怎样做的.</p>
-<h1 id="整体架构"><a href="#整体架构" class="headerlink" title="整体架构"></a>整体架构</h1><p><img src="https://ganeshvernekar.com/blog/img/tsdb1.svg" alt="image"></p>
+<h1 id="整体架构"><a href="#整体架构" class="headerlink" title="整体架构"></a>整体架构</h1><p><img src="https://ganeshvernekar.com/blog/img/tsdb1.svg" alt></p>
 <p>其中, </p>
 <ul>
 <li>(t, v) 即为采集的一个样本点（sample）                                                                </li>
@@ -48,19 +48,19 @@
 </ul>
 <p><strong>接下来对监控样本点的生命周期进行简单介绍.</strong></p>
 <h1 id="样本点的生命周期"><a href="#样本点的生命周期" class="headerlink" title="样本点的生命周期"></a>样本点的生命周期</h1><p>Prometheus 新采集的样本都会存到 Head block, 其中每一个 series 会存到唯一对应的压缩单元(即 chunk) 里. 为了防止 Prometheus 挂了导致内存中的数据丢失, 新采集到的数据还会写到预写日志中.如下图：</p>
-<p><img src="https://ganeshvernekar.com/blog/img/tsdb2.svg" alt="image"></p>
+<p><img src="https://ganeshvernekar.com/blog/img/tsdb2.svg" alt></p>
 <p>备注：样本点在存入 chunk 时, 通过 labels 的哈希值来获得或创建对应的 series chunk. </p>
 <p><strong>当 chunk 中存了 120 个样本或该 chunk 已满 2h 时, 将创建出一个新的 chunk, 老的 chunk 视为 “已满”.</strong></p>
 <p>ps: 如果 15s 采集一次, 则每 30min 会满一次.</p>
 <p>如下图所示: 红色的是新创建的 chunk, 黄色的是老的 chunk.</p>
-<p><img src="https://ganeshvernekar.com/blog/img/tsdb4.svg" alt="image"></p>
+<p><img src="https://ganeshvernekar.com/blog/img/tsdb4.svg" alt></p>
 <p>自 Prometheus v2.19.0 之后（我们目前使用的是 v2.20.0）, 当一个 chunk “已满” 时, 它就会被刷新到磁盘中, 并从磁盘中进行内存映射（memory-map）, 仅在内存中存储一个它的引用. 有了内存映射, 可以再需要的时候通过引用动态地将 chunk 加载到内存中, 这是操作系统提供的特性, 参考: <a href="https://en.wikipedia.org/wiki/Mmap" target="_blank" rel="noopener">https://en.wikipedia.org/wiki/Mmap</a>.</p>
-<p><img src="https://ganeshvernekar.com/blog/img/tsdb8.svg" alt="image"></p>
-<p><img src="https://ganeshvernekar.com/blog/img/tsdb9.svg" alt="image"></p>
+<p><img src="https://ganeshvernekar.com/blog/img/tsdb8.svg" alt></p>
+<p><img src="https://ganeshvernekar.com/blog/img/tsdb9.svg" alt></p>
 <p>当 Head 中的数据跨度达到 3h 时（mmap 中数据的时间跨度）, 则最久的两个小时的数据(即上图的 1~4)将被压缩成一个 persistent block.</p>
 <p>此时, 相关的 WAL 和索引数据也被删除.</p>
 <p>再看一次这个图：</p>
-<p><img src="https://ganeshvernekar.com/blog/img/tsdb1.svg" alt="image"></p>
+<p><img src="https://ganeshvernekar.com/blog/img/tsdb1.svg" alt></p>
 <p>每个 block 是按时间序列排序的. 当查询多个 block 中, 会从很多 block 中读出对应的数据, 然后再合并成一个整体的结果, 这个合并过程显然是有代价的.</p>
 <p>因此引入了压缩(<em>compaction</em>)操作：即将一个或多个 block 合并成一个更大的 block. 在压缩的过程中还可以修改现有数据, 例如删除「已被删除」的数据, 或者重新构造样本块以提高查询性能.</p>
 <p>压缩的时机与设定的步长有关: 假设 block 为保存 2h 的数据, 如果步长设置为 3, 则会将三个 2h 的合成一个 6h 的block, 将三个 6h 的合成一个 18h 的block.</p>
