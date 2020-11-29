@@ -27,7 +27,7 @@ body {
 
 .body_container {
   padding: 0 60px;
-  max-width: 3150px;
+  max-width: 2250px;
   margin: 0 auto; }
 
 .content_container {
@@ -805,7 +805,7 @@ figure.highlight,
     width: 100%; }
     figure.highlight .code pre,
     .codeblock .code pre {
-      max-width: 700px;
+      max-width: 1400px;
       overflow-x: auto;
       overflow-y: hidden; }
   figure.highlight .line,
