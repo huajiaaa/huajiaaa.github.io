@@ -1,105 +1,80 @@
-/* global KEEP */
-function initTOC() {
-  KEEP.utils.navItems = document.querySelectorAll('.post-toc-wrap .post-toc li');
+(function (window, document) {
+  function register($toc) {
+    const currentInView = new Set();
+    const headingToMenu = new Map();
+    const $menus = Array.from($toc.querySelectorAll('.menu-list > li > a'));
 
-  if (KEEP.utils.navItems.length > 0) {
-
-    KEEP.utils = {
-
-      ...KEEP.utils,
-
-      findActiveIndexByTOC() {
-        if (!Array.isArray(KEEP.utils.sections)) return;
-        let index = KEEP.utils.sections.findIndex(element => {
-          return element && element.getBoundingClientRect().top - 20 > 0;
-        });
-        if (index === -1) {
-          index = KEEP.utils.sections.length - 1;
-        } else if (index > 0) {
-          index--;
-        }
-        this.activateNavByIndex(index);
-      },
-
-      registerSidebarTOC() {
-        KEEP.utils.sections = [...document.querySelectorAll('.post-toc li a.nav-link')].map(element => {
-          const target = document.getElementById(decodeURI(element.getAttribute('href')).replace('#', ''));
-          element.addEventListener('click', event => {
-            event.preventDefault();
-            const offset = target.getBoundingClientRect().top + window.scrollY;
-            window.anime({
-              targets: document.scrollingElement,
-              duration: 500,
-              easing: 'linear',
-              scrollTop: offset - 10,
-              complete: function () {
-                setTimeout(() => {
-                  KEEP.utils.pageTop_dom.classList.add('hide');
-                }, 100)
-              }
-            });
-          });
-          return target;
-        });
-      },
-
-      activateNavByIndex(index) {
-        const target = document.querySelectorAll('.post-toc li a.nav-link')[index];
-        if (!target || target.classList.contains('active-current')) return;
-
-        document.querySelectorAll('.post-toc .active').forEach(element => {
-          element.classList.remove('active', 'active-current');
-        });
-        target.classList.add('active', 'active-current');
-        let parent = target.parentNode;
-        while (!parent.matches('.post-toc')) {
-          if (parent.matches('li')) parent.classList.add('active');
-          parent = parent.parentNode;
-        }
-        // Scrolling to center active TOC element if TOC content is taller then viewport.
-        const tocElement = document.querySelector('.post-toc-wrap');
-        window.anime({
-          targets: tocElement,
-          duration: 200,
-          easing: 'linear',
-          scrollTop: tocElement.scrollTop - (tocElement.offsetHeight / 2) + target.getBoundingClientRect().top - tocElement.getBoundingClientRect().top
-        });
-      },
-
-      showPageAsideWhenHasTOC() {
-
-        const openHandle = () => {
-          const styleStatus = KEEP.getStyleStatus();
-          const key = 'isOpenPageAside';
-          if (styleStatus && styleStatus.hasOwnProperty(key)) {
-            KEEP.utils.leftSideToggle.pageAsideHandleOfTOC(styleStatus[key]);
-          } else {
-            KEEP.utils.leftSideToggle.pageAsideHandleOfTOC(true);
-          }
-        }
-
-        const initOpenKey = 'init_open';
-
-        if (KEEP.theme_config.toc.hasOwnProperty(initOpenKey)) {
-          KEEP.theme_config.toc[initOpenKey] ? openHandle() : KEEP.utils.leftSideToggle.pageAsideHandleOfTOC(false);
-
-        } else {
-          openHandle();
-        }
-
+    for (const $menu of $menus) {
+      const elementId = $menu.getAttribute('href').trim().slice(1);
+      const $heading = document.getElementById(elementId);
+      if ($heading) {
+        headingToMenu.set($heading, $menu);
       }
     }
 
-    KEEP.utils.showPageAsideWhenHasTOC();
-    KEEP.utils.registerSidebarTOC();
+    const $headings = Array.from(headingToMenu.keys());
 
-  } else {
-    KEEP.utils.pageContainer_dom.removeChild(document.querySelector('.page-aside'));
+    const callback = (entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          currentInView.add(entry.target);
+        } else {
+          currentInView.delete(entry.target);
+        }
+      }
+      let $heading;
+      if (currentInView.size) {
+        // heading is the first in-view heading
+        $heading = [...currentInView].sort(($el1, $el2) => $el1.offsetTop - $el2.offsetTop)[0];
+      } else if ($headings.length) {
+        // heading is the closest heading above the viewport top
+        $heading = $headings
+          .filter(($heading) => $heading.offsetTop < window.scrollY)
+          .sort(($el1, $el2) => $el2.offsetTop - $el1.offsetTop)[0];
+      }
+      if ($heading && headingToMenu.has($heading)) {
+        $menus.forEach(($menu) => $menu.classList.remove('is-active'));
+
+        const $menu = headingToMenu.get($heading);
+        $menu.classList.add('is-active');
+        let $menuList = $menu.parentElement.parentElement;
+        while (
+          $menuList.classList.contains('menu-list') &&
+          $menuList.parentElement.tagName.toLowerCase() === 'li'
+        ) {
+          $menuList.parentElement.children[0].classList.add('is-active');
+          $menuList = $menuList.parentElement.parentElement;
+        }
+      }
+    };
+    const observer = new IntersectionObserver(callback, { threshold: 0 });
+
+    for (const $heading of $headings) {
+      observer.observe($heading);
+      // smooth scroll to the heading
+      if (headingToMenu.has($heading)) {
+        const $menu = headingToMenu.get($heading);
+        $menu.setAttribute('data-href', $menu.getAttribute('href'));
+        $menu.setAttribute('href', 'javascript:;');
+        $menu.addEventListener('click', () => {
+          if (typeof $heading.scrollIntoView === 'function') {
+            $heading.scrollIntoView({ behavior: 'smooth' });
+          }
+          const anchor = $menu.getAttribute('data-href');
+          if (history.pushState) {
+            history.pushState(null, null, anchor);
+          } else {
+            location.hash = anchor;
+          }
+        });
+        $heading.style.scrollMargin = '1em';
+      }
+    }
   }
-}
 
-if (KEEP.theme_config.pjax.enable === true && KEEP.utils) {
-  initTOC();
-} else {
-  window.addEventListener('DOMContentLoaded', initTOC);
-}
+  if (typeof window.IntersectionObserver === 'undefined') {
+    return;
+  }
+
+  document.querySelectorAll('#toc').forEach(register);
+})(window, document);
