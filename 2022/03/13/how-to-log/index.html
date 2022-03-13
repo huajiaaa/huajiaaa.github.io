@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><meta><title>how-to-log - 温酒写 bug</title><link rel="manifest" href="/manifest.json"><meta name="application-name" content="温酒写 bug"><meta name="msapplication-TileImage" content="/favicon/favicon-16x16"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="温酒写 bug"><meta name="apple-mobile-web-app-status-bar-style" content="default"><link rel="apple-touch-icon" sizes="16*16" href="/favicon/favicon-16x16"><meta name="description" content="翻译自：https:&amp;#x2F;&amp;#x2F;medium.com&amp;#x2F;unomaly&amp;#x2F;logging-wisdom-how-to-log-5a19145e35ec"><meta property="og:type" content="blog"><meta property="og:title" content="how-to-log"><meta property="og:url" content="http://huajiaaa.com/2022/03/13/how-to-log/"><meta property="og:site_name" content="温酒写 bug"><meta property="og:description" content="翻译自：https:&amp;#x2F;&amp;#x2F;medium.com&amp;#x2F;unomaly&amp;#x2F;logging-wisdom-how-to-log-5a19145e35ec"><meta property="og:locale" content="zh_CN"><meta property="og:image" content="https://miro.medium.com/max/1000/0*Iy0g9SninQqd40Dg."><meta property="article:published_time" content="2022-03-13T06:49:18.000Z"><meta property="article:modified_time" content="2022-03-13T11:11:35.655Z"><meta property="article:tag" content="翻译"><meta property="twitter:card" content="summary"><meta property="twitter:image" content="https://miro.medium.com/max/1000/0*Iy0g9SninQqd40Dg."><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"http://huajiaaa.com/2022/03/13/how-to-log/"},"headline":"how-to-log","image":[],"datePublished":"2022-03-13T06:49:18.000Z","dateModified":"2022-03-13T11:11:35.655Z","author":{"@type":"Person","name":null},"publisher":{"@type":"Organization","name":"温酒写 bug","logo":{"@type":"ImageObject","url":"http://huajiaaa.com/favicon/logo.svg"}},"description":"翻译自：https:&#x2F;&#x2F;medium.com&#x2F;unomaly&#x2F;logging-wisdom-how-to-log-5a19145e35ec"}</script><link rel="canonical" href="http://huajiaaa.com/2022/03/13/how-to-log/"><link rel="icon" href="/favicon/logo.svg"><link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.15.2/css/all.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@9.12.0/styles/atom-one-light.css"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;600&amp;family=Source+Code+Pro"><link rel="stylesheet" href="/css/default.css"><style>body>.footer,body>.navbar,body>.section{opacity:0}</style><!--!--><!--!--><!--!--><!--!--><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lightgallery@1.10.0/dist/css/lightgallery.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/justifiedGallery@3.8.1/dist/css/justifiedGallery.min.css"><!--!--><!--!--><style>.pace{-webkit-pointer-events:none;pointer-events:none;-webkit-user-select:none;-moz-user-select:none;user-select:none}.pace-inactive{display:none}.pace .pace-progress{background:#3273dc;position:fixed;z-index:2000;top:0;right:100%;width:100%;height:2px}</style><script src="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/pace.min.js"></script><!--!--><!--!--><meta name="generator" content="Hexo 5.0.2"></head><body class="is-2-column"><nav class="navbar navbar-main"><div class="container"><div class="navbar-brand justify-content-center"><a class="navbar-item navbar-logo" href="/"><img src="/favicon/logo.svg" alt="温酒写 bug" height="28"></a></div><div class="navbar-menu"><div class="navbar-start"><a class="navbar-item" href="/">主页</a><a class="navbar-item" href="/archives">归档</a><a class="navbar-item" href="/categories">分类</a><a class="navbar-item" href="/tags">标签</a><a class="navbar-item" href="/about">关于</a></div><div class="navbar-end"><a class="navbar-item search" title="搜索" href="javascript:;"><i class="fas fa-search"></i></a></div></div></div></nav><section class="section"><div class="container"><div class="columns"><div class="column order-2 column-main is-8-tablet is-8-desktop is-8-widescreen"><div class="card"><article class="card-content article" role="article"><div class="article-meta is-size-7 level is-mobile"><div class="level-left"><span class="level-item"><time dateTime="2022-03-13T06:49:18.000Z" title="2022/3/13 14:49:18">2022-03-13</time>发表</span><span class="level-item"><a class="link-muted" href="/categories/%E6%8A%80%E6%9C%AF/">技术</a></span><span class="level-item">30 分钟读完 (大约4556个字)</span></div></div><h1 class="title is-3 is-size-4-mobile">how-to-log</h1><div class="content"><p>翻译自：<a target="_blank" rel="noopener" href="https://medium.com/unomaly/logging-wisdom-how-to-log-5a19145e35ec">https://medium.com/unomaly/logging-wisdom-how-to-log-5a19145e35ec</a></p>
+<a id="more"></a>
+
+<h1 id="日志的智慧：如何打日志"><a href="#日志的智慧：如何打日志" class="headerlink" title="日志的智慧：如何打日志"></a>日志的智慧：如何打日志</h1><p>上一篇文章我探讨了为什么日志记录很重要，而这篇文章将更深入地探讨如何记录。过去在 <a target="_blank" rel="noopener" href="https://unomaly.com/">Unomaly</a> 工作的的四年中，我与许多公司合作，看到了许多人们如何给应用程序打日志的例子。在这篇文章中，我想分享这些经验，并给出一些关于如何写更好的日志的建议和实用技巧。</p>
+<p>关于这方面已经有很多文章了，所以为了节省网上宝贵的空间，并保持它的新奇和有趣，我将在文章最后的 “进一步阅读” 部分列出其他地方已经被广泛接受的最佳实践。</p>
+<h1 id="TL-DR"><a href="#TL-DR" class="headerlink" title="TL;DR"></a>TL;DR</h1><p>由于我们生活在一个普遍缺乏耐心和时间的时代，这里有一个概括的版本：</p>
+<ul>
+<li><p>把打 log 想象为程序正在写自己的运行日记：进程启动，主要的分支点，错误，不寻常的事件等等。</p>
+</li>
+<li><p>结构化你的日志。考虑使用混合的方式：自由文本日志，使用 JSON 和 key-value 对拼接。不要使用新的数据格式。</p>
+</li>
+<li><p>尽量避免多行日志，因为它们经常在到达日志采集器的途中被分开。</p>
+</li>
+<li><p>永远不要在日志中包含用户敏感的数据，例如密码或身份证号等。</p>
+</li>
+<li><p>不要吞下异常。相反，要在日志中打印出来，并且让事件的严重性决定它在日志中被记录的细节粒度。</p>
+</li>
+<li><p>当在关键路径中打日志时，使用抽样而不是聚合。</p>
+</li>
+<li><p>使用英文打日志。它是软件的通用语言。</p>
+</li>
+</ul>
+<h1 id="什么时候打日志"><a href="#什么时候打日志" class="headerlink" title="什么时候打日志"></a>什么时候打日志</h1><p>可以将日志想象为程序的日记，它既应该被人类所读，也应该被计算机所读。它包含描述正在发生的事情的信息，以及作为键值对的相关上下文。另外，请记住它也是应该被用于数据挖掘目的的。因此，包括相关的标识符，如请求 ID、PID、用户 ID 等等。</p>
+<p>但是，当程序已经由它的代码和输入定义时，为什么还要写 “日记” 呢？这是一个很有道理的观点。为什么我们不逐行地进行追踪和存储呢？因为它只会产生太多的不相关的数据。日志允许你对程序的操作进行分块，就像注释可以用来解释整段代码一样。</p>
+<p>写日志，以便它们告诉负责操作它的人 “程序的执行流程”(ops人员，或者你，在devops 的情况下)。</p>
+<p>添加日志的一些好地方是：</p>
+<ul>
+<li>代码的主要分支：例如 web 服务中的 GET 和 POST 请求</li>
+<li>当出现错误/异常、或得到预期外的值时</li>
+<li>重大的特定于业务的事件，例如：某人登录了，或达到了某个阈值</li>
+<li>请求失败时、重试时</li>
+<li>耗时的批处理操作的开始和结束时</li>
+</ul>
+<h1 id="如何序列化数据"><a href="#如何序列化数据" class="headerlink" title="如何序列化数据"></a>如何序列化数据</h1><p>让我们看看下边的例子：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">INFO pkgs.messaging sendMessage: sent message from jane to joe at time Fri, 20 Apr 2018 09:42: Hey Joe, where you goin’ with that logger of yours?</span><br></pre></td></tr></table></figure>
+
+<p>这是不可原谅的，会把人逼疯！为什么呢？</p>
+<ul>
+<li>非标准日期格式</li>
+<li>未引用的用户数据使其与日志中的其他元数据不可分离</li>
+<li>没有明显的键值句柄可用于解析。你需要自定义正则表达式来从中提取任何结构化数据，这意味着通常它的结构化数据不会被提取（因为没人去做这个）</li>
+</ul>
+<p>问题是，当开发人员编写上面的代码时，它可能看起来像这样：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">logger.Info(“sent message from $&#123;from&#125; to $&#123;to&#125; at time $&#123;t&#125;: $&#123;message&#125;”, context)</span><br></pre></td></tr></table></figure>
+
+<p>看起来不太糟，对吗？</p>
+<p>问题是，通过一个格式字符串序列化所有东西，所有的元数据信息（即不同的字段的意思）是丢失的。</p>
+<p>另外，即使在相同的代码库中，你也会经常发现日志中记录仪相同数据的许多不同的方法/格式。</p>
+<p><strong>日志需要结构化！</strong> 结构化日志有点像<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Semantic_Web">语义网</a>：这是一个伟大的想法，理论上每个人都喜欢它，但是建立必要的约定的困难 (麻烦) 使人们耸耸肩膀，然后依然坚持他们的旧方法。</p>
+<p>那么，该如何编写结构化日志呢？ </p>
+<p>首先，选择一种格式。由于很少有人喜欢 XML，但是很多人喜欢 JSON，所以我将聊聊如何使用 JSON 进行结构化的日志。但是无论选择何种数据格式，大多数原理都是适用的。</p>
+<h2 id="JSON-格式的日志"><a href="#JSON-格式的日志" class="headerlink" title="JSON 格式的日志"></a>JSON 格式的日志</h2><p><img src="https://miro.medium.com/max/1000/0*Iy0g9SninQqd40Dg." alt="img"></p>
+<p>虽然听起来很简单：只是编写 JSON 格式的日志。但仍然会有一个问题：怎么编写？</p>
+<p>一种很 naive，但并不罕见的方法是：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">&#123;“type”: “INFO”, “message”: “INFO pkgs.messaging sendMessage: sent message from jane to joe at time Fri, 20 Apr 2018 09:42: Hey Joe, where you goin’ with that logger of yours?”&#125;</span><br></pre></td></tr></table></figure>
+
+<p>不幸的是，这种写法并没有比之前好到哪里去。现在唯一结构化的数据块是日志级别。编写优秀的 JSON 日志的技巧是 “选择粒度级别”，既要满足开发人员的灵活性，又要满足可解析性的需要。另外一个极端 (细粒度) 是将整个日志设置为格式化的 JSON 结构：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">    “type”: “INFO”,</span><br><span class="line">    “module”: “social”,</span><br><span class="line">    “method”: “sendMessage”,</span><br><span class="line">    “event”: &#123;</span><br><span class="line">        “type”: “sent_successfully”,</span><br><span class="line">        “from”: “jane”,</span><br><span class="line">        “to”: “joe”,</span><br><span class="line">        “message”: “Hey Joe, where you goin&#x27; with that logger of yours?”,</span><br><span class="line">        “time”: 1524817341</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这种写法允许工具自动将日志中的不同信息片段识别为可以进行分析或分类的单个标记。</p>
+<p>在最理想的情况下，我认为就应该用以上的方式写日志。但是，一个常见的反对意见是，你的日志变得不可读，因为它在没有工具的情况下看起来是这样的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">&#123;“type”:“INFO”,“module”:“social”, “method”:“sendMessage”, “event”:&#123; “type”:“sent_successfully”, “from”:“jane”, “to”: “joe”, “message”: “Hey Joe, where you goin’ with that logger of yours?”, “time”:1524817341 &#125;&#125;</span><br></pre></td></tr></table></figure>
+
+<p>确实有些难以读懂，我认为这是一些开发人员坚持使用非结构化日志记录的原因。此外，我认为在编写代码时编写一个自由文本日志很容易。试图创造一个一致的和整洁的组织结构很容易将你带入 “自行车棚效应” (<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Law_of_triviality]">琐碎定律</a>) ，以及对 “唯一之路” 的需求。</p>
+<p>在这里，我想介绍一种混合方法（即键值对和 JSON 格式混用）：</p>
+<p>生成自由形式的日志，并将元数据拼接成 JSON 或 key=value 键值对。例如：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">INFO pkg=social method=sendMessage: successfully sent message &#123;“from”: “jane”, “to”: “joe”, “time”: 1524817341, “message”: “Hey Joe, where you goin’ with that logger of yours?”&#125;</span><br></pre></td></tr></table></figure>
+
+<p>的确，日志级别和消息类型没有被显式声明。但是，与使用非结构化格式编写整个日志相比：the <em>number of choices</em> that go into the above, is much lower。这使得在整个代码库中保持一致的实践更加现实。另外一个优点是，这种方式使得日志相当容易阅读，而无需借助 JSON 格式化管道/工具来阅读。</p>
+<p>此外，智能日志分析工具会自动提取它能找到的键值对和 JSON 片段，并将其作为元数据添加到事件中，这样就可以对其进行搜索和索引，这通常足以正确地对所有事件进行分类。</p>
+<p>随着事件日志日益成为数据挖掘的主题，我认为将会出现更多既定惯例/最佳实践。然而，到目前为止，我还是支持使用混合方法，因为它的使用门槛很低，它通常只是意味着更坚持一些人们已经知道的实践。</p>
+<ul>
+<li>如果在日志中包含复杂的或分层的数据，则将这些部分编写为 JSON</li>
+<li>使用简单的 key=value，如果需要，可以使用引号，以获得更简单的数据。关键在于简洁，所以将其包装为JSON 只会使其难以阅读</li>
+<li>尽可能少地自己做一些发明。当你觉得需要记录一个管道符分隔的数字列表，使其看起来像一个矩阵时：请停下来，站起来走一走（别再瞎搞了）</li>
+</ul>
+<h1 id="多行日志和合理大小的事件"><a href="#多行日志和合理大小的事件" class="headerlink" title="多行日志和合理大小的事件"></a>多行日志和合理大小的事件</h1><p>这是一个看法因人而异的问题，但我喜欢将日志消息视为 100 到 1000 个字符长度的简短事件。</p>
+<p>不要将程序中发生的一个大过程描述为具有大量数据的单个大事件，而应将其分解为若干个较小的事件，每个事件将更大的过程描述为若干个步骤。</p>
+<ul>
+<li>大小以千字节为单位</li>
+<li>每个事件都应该有足够的背景来说明其本身的意义。你不需要看周围的事件来理解它的意思</li>
+<li>需要有足够的信息来搜索更多的信息（如 requestId、traceId），从而找到其他相关事件</li>
+</ul>
+<p>此外，可以将日志消息视为事件。他们应该描述一件事，并且有足够的上下文，从而使得通过它看到正在发生的事情，或者知道该到哪里去寻找更多的信息。如果调试日志所需要的内部数据结构不能满足需要，那么他们将不得不将调试器连接到程序中（debug）。</p>
+<p>一些程序将转储大量的内部数据结构作为日志输出。在花了几个小时思考如何编写好的格式的字符串之后，你生成了一个非常重要的内部数据结构的漂亮的单页表表示。开发人员的体验得到了改善，你的团队欢呼雀跃，生活也变得美好了。</p>
+<p>然而，在另一个角落，事情就不那么美妙了。一个操作人员试图弄清楚为什么发生了错误，但只有以下记录：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">oc=0x1A 1ffA 38bd 1f3d 85af 12fa d901 be02 […]</span><br></pre></td></tr></table></figure>
+
+<p>格式化良好的多行数据转储在此过程中被分解。虽然理论上支持多行日志，但在实践中，大多数日志路由设置都会出错。</p>
+<p>因此，避免多行日志通常是好的。或者，将日志包装在 JSON 中可以消除多行问题，因为这将确保换行符被转义。但是，保持它尽可能简洁的规则仍然需要坚持——don’t log blob’s of JSON as single events。</p>
+<h1 id="通过采样记录关键路径"><a href="#通过采样记录关键路径" class="headerlink" title="通过采样记录关键路径"></a>通过采样记录关键路径</h1><p>不记录日志的一个常见原因是请求量大的进程，您不可能对每个请求都进行大量的日志记录。</p>
+<p>在这里，许多人只是完全跳过日志记录，而采用报告聚合的方式，例如：periodic check: users_logged_in=10 with mean_session_time=12min。这对于查看整体运行状况是非常有用的，但是对于发现单个请求的瓶颈是毫无意义的。</p>
+<p>一个更强大的方法是抽样：在每个请求中添加日志语句，但只输出其中 X% 的样本。每个日志语句可以包装在shouldILog() 类型的语句中，使其不会执行，除非它将为特定的请求采样。</p>
+<p>如果有足够的请求，这将足够及时地捕获几乎每一种类型的请求的至少一个实例，包括那些命中尾部延迟的请求。Charity Majors 在<a target="_blank" rel="noopener" href="https://www.youtube.com/watch?t=1126&v=1wjovFSCGhE&feature=youtu.be">演讲</a>中对此做了说明。(我知道我在上一篇文章中也提到了这一点。我觉得她很棒!)</p>
+<h1 id="不要吞下异常"><a href="#不要吞下异常" class="headerlink" title="不要吞下异常"></a>不要吞下异常</h1><p>“永远不要吞下异常！”</p>
+<p>你以前可能也听过有人这么说。如果这一段有什么值得学到的，就是这句话了。</p>
+<p>为了说明这意味着什么，请看下面的内容：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">INFO: everything is fine</span><br><span class="line">FATAL: universe reached heat death, errno=EINTR</span><br><span class="line">INFO: flushed to database n_objects=10 time=30ms</span><br></pre></td></tr></table></figure>
+
+<p>在这里，日志的读者将非常想知道第二行左右发生了什么。</p>
+<p>虽然发生了非常严重的事情，但没有提供更多内容。</p>
+<p>这种情况经常发生在 catch 子句中，后面跟着一个日志，有时是 process.exit()，或者更糟的是，仅仅有一个线程崩溃，就把剩下的进程变成了《行尸走肉》中的情节。</p>
+<p>无论何时遇到异常，都应该尝试报告与之相关的所有内容。通常，最好的办法就是不要处理它，让它上升到最高点：恐慌、重新抛出或任何适用于你的语言的东西。该语言的默认行为通常非常详细地描述所发生的事情。</p>
+<p>但更常见的情况是，有人试图抓住它以重新表达它，然后信息丢失，and turns into <code>shit’s broken, exiting</code>。</p>
+<p>我想以以下建议来结束这一节：</p>
+<p>异常事件应该产生异常后果。如果你的程序达到致命状态，您应该为它提供更多的上下文，而不是提供更多的业务正常类型的事件。</p>
+<h1 id="日志级别和敏感数据"><a href="#日志级别和敏感数据" class="headerlink" title="日志级别和敏感数据"></a>日志级别和敏感数据</h1><p>对于不同类型的日志，syslog 日志有不同的级别。</p>
+<p>这些在标准中有很好的定义，但是在实践中经常会看到它们被滥用。</p>
+<p>要遵循的一个好规则是考虑输出的信息类型。大致上，我们可以把它分为两类：</p>
+<ol>
+<li>输入程序处理的数据，可能高度敏感。例如，用户的身份证号码</li>
+<li>程序内部工作的数据，例如当前 LRU 缓存的大小</li>
+</ol>
+<p>一个常见的例子是明文密码，好的程序会在输出中屏蔽它们，就像这样：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Connecting to database db=foobar username=root password=xxxxxx</span><br></pre></td></tr></table></figure>
+
+<p>但是，请注意，这个例子模糊了两者之间的界限，因为包含了用户名。在这一点上，我们需要练习一些常识。</p>
+<p>一条经验法则是：永远不要在日志中包含敏感的用户数据。</p>
+<p>另外，确保你没有 在DEBUG 日志级别运行你的生产代码。这似乎是显而易见的，但我见过很多次。可能是因为有人急于调试一个破碎的流程，并对其进行了硬编码。有很多方法可以做到这一点，但是将日志级别作为运行时配置的一部分，这与 dev 和 prod 不同，可以防止这种情况的发生。</p>
+<h1 id="“English-do-you-speak-it-”"><a href="#“English-do-you-speak-it-”" class="headerlink" title="“English ****, do you speak it?!”"></a>“English ****, do you speak it?!”</h1><p>你永远不知道，在某个遥远的国家，有一天会有谁看到你的日志，并因为你使用了你的母语而咒骂你。</p>
+<p>互联网是 (或者至少应该是) 无国界的，让我们尽可能地让它具有包容性。因此，请用英文写日志。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>希望这篇文章能让你了解到打日志的行为准则！这只是我分享的经验，所以我也想听听你的，请通过 <a target="_blank" rel="noopener" href="https://twitter.com/unomaly">@unomaly</a> 分享出来：我们希望看到你在日志实践过程中的宝石，以及噩梦。</p>
+<p>在下一篇文章中，我们将讨论如何将异常检测应用到日志中。</p>
+<p>这个博客不应该是一个营销渠道，而是一个产品不可知的地方，让我们的技术团队表达自己和我们正在做的事情。因此，本着完全公开的精神：这是 Unomaly 的核心业务，但我认为，无论你使用什么产品进行日志分析，这都是相关的：通过只强调与以前不同的东西的视角来看待你的数据。</p>
+<p>感谢阅读，敬请关注。</p>
+<p>Peace, out.<br>– Emil</p>
+<h1 id="Further-reading"><a href="#Further-reading" class="headerlink" title="Further reading"></a>Further reading</h1><ul>
+<li><a target="_blank" rel="noopener" href="http://www.masterzen.fr/2013/01/13/the-10-commandments-of-logging/">The 10 Commandments of Logging</a>: A thorough walkthrough of some of the basics. A bit like 12 Factor Apps.</li>
+<li><a target="_blank" rel="noopener" href="https://commons.apache.org/proper/commons-logging/guide.html#JCL_Best_Practices">Apache Common Best Practices for logging</a>: Well, it’s the Apache foundation. They have some experience writing software.</li>
+<li><a target="_blank" rel="noopener" href="https://dev.to/grhegde09/logging-done-right-makes-your-life-bright">Logging done right, makes your life bright!</a></li>
+<li><a target="_blank" rel="noopener" href="https://logmatic.io/blog/beyond-application-monitoring-discover-logging-best-practices/">Beyond Application Monitoring</a></li>
+<li><a target="_blank" rel="noopener" href="http://blog.scalyr.com/2017/10/application-logging-practices-adopt/">Application Logging Practices You Should Adopt</a></li>
+</ul>
+</div><div class="article-licensing box"><div class="licensing-title"><p>how-to-log</p><p><a href="http://huajiaaa.com/2022/03/13/how-to-log/">http://huajiaaa.com/2022/03/13/how-to-log/</a></p></div><div class="licensing-meta level is-mobile"><div class="level-left"><div class="level-item is-narrow"><div><h6>发布于</h6><p>2022-03-13</p></div></div><div class="level-item is-narrow"><div><h6>更新于</h6><p>2022-03-13</p></div></div><div class="level-item is-narrow"><div><h6>许可协议</h6><p><a class="icons" rel="noopener" target="_blank" title="Creative Commons" href="https://creativecommons.org/"><i class="icon fab fa-creative-commons"></i></a><a class="icons" rel="noopener" target="_blank" title="Attribution" href="https://creativecommons.org/licenses/by/4.0/"><i class="icon fab fa-creative-commons-by"></i></a><a class="icons" rel="noopener" target="_blank" title="Noncommercial" href="https://creativecommons.org/licenses/by-nc/4.0/"><i class="icon fab fa-creative-commons-nc"></i></a></p></div></div></div></div></div><div class="article-tags is-size-7 mb-4"><span class="mr-2">#</span><a class="link-muted mr-2" rel="tag" href="/tags/%E7%BF%BB%E8%AF%91/">翻译</a></div><!--!--></article></div><!--!--><nav class="post-navigation mt-4 level is-mobile"><div class="level-end"><a class="article-nav-next level level-item link-muted" href="/2022/03/06/%E5%81%9A%E8%BF%87%E7%9A%84%E6%9C%80%E9%85%B7%E7%9A%84%E4%B8%80%E4%BB%B6%E4%BA%8B/"><span class="level-item">最酷的一件事?</span><i class="level-item fas fa-chevron-right"></i></a></div></nav><div class="card"><div class="card-content"><h3 class="title is-5">评论</h3><div class="content" id="valine-thread"></div><script src="//cdn.jsdelivr.net/npm/leancloud-storage@3/dist/av-min.js"></script><script src="https://cdn.jsdelivr.net/npm/valine@1.4.16/dist/Valine.min.js"></script><script>new Valine({
+            el: '#valine-thread',
+            appId: "EY7v6w0dFvwOqgqxWjF3WX5u-gzGzoHsz",
+            appKey: "paLAHxdeEm6CAo6vlywh1MMO",
+            
+            avatar: "mm",
+            avatarForce: false,
+            meta: ["nick","mail","link"],
+            pageSize: 10,
+            lang: "zh-CN",
+            visitor: false,
+            highlight: true,
+            recordIP: false,
+            
+            
+            
+            enableQQ: false,
+            requiredFields: [],
+        });</script></div></div></div><div class="column column-left is-4-tablet is-4-desktop is-4-widescreen  order-1"><div class="card widget" data-type="profile"><div class="card-content"><nav class="level"><div class="level-item has-text-centered flex-shrink-1"><div><figure class="image is-128x128 mx-auto mb-2"><img class="avatar is-rounded" src="/favicon/logo.svg" alt="温酒写 bug"></figure><p class="title is-size-4 is-block" style="line-height:inherit;">温酒写 bug</p></div></div></nav><nav class="level is-mobile"><div class="level-item has-text-centered is-marginless"><div><p class="heading">文章</p><a href="/archives"><p class="title">11</p></a></div></div><div class="level-item has-text-centered is-marginless"><div><p class="heading">分类</p><a href="/categories"><p class="title">3</p></a></div></div><div class="level-item has-text-centered is-marginless"><div><p class="heading">标签</p><a href="/tags"><p class="title">4</p></a></div></div></nav></div></div><!--!--><div class="card widget" data-type="categories"><div class="card-content"><div class="menu"><h3 class="menu-label">分类</h3><ul class="menu-list"><li><a class="level is-mobile" href="/categories/life/"><span class="level-start"><span class="level-item">life</span></span><span class="level-end"><span class="level-item tag">2</span></span></a></li><li><a class="level is-mobile" href="/categories/private/"><span class="level-start"><span class="level-item">private</span></span><span class="level-end"><span class="level-item tag">5</span></span></a></li><li><a class="level is-mobile" href="/categories/%E6%8A%80%E6%9C%AF/"><span class="level-start"><span class="level-item">技术</span></span><span class="level-end"><span class="level-item tag">4</span></span></a></li></ul></div></div></div><div class="card widget" data-type="archives"><div class="card-content"><div class="menu"><h3 class="menu-label">归档</h3><ul class="menu-list"><li><a class="level is-mobile" href="/archives/2022/03/"><span class="level-start"><span class="level-item">三月 2022</span></span><span class="level-end"><span class="level-item tag">3</span></span></a></li><li><a class="level is-mobile" href="/archives/2022/01/"><span class="level-start"><span class="level-item">一月 2022</span></span><span class="level-end"><span class="level-item tag">5</span></span></a></li><li><a class="level is-mobile" href="/archives/2021/01/"><span class="level-start"><span class="level-item">一月 2021</span></span><span class="level-end"><span class="level-item tag">1</span></span></a></li><li><a class="level is-mobile" href="/archives/2020/11/"><span class="level-start"><span class="level-item">十一月 2020</span></span><span class="level-end"><span class="level-item tag">1</span></span></a></li><li><a class="level is-mobile" href="/archives/2019/09/"><span class="level-start"><span class="level-item">九月 2019</span></span><span class="level-end"><span class="level-item tag">1</span></span></a></li></ul></div></div></div><div class="card widget" data-type="tags"><div class="card-content"><div class="menu"><h3 class="menu-label">标签</h3><div class="field is-grouped is-grouped-multiline"><div class="control"><a class="tags has-addons" href="/tags/prometheus/"><span class="tag">prometheus</span><span class="tag">1</span></a></div><div class="control"><a class="tags has-addons" href="/tags/%E5%A4%A7%E7%9B%91%E6%8E%A7/"><span class="tag">大监控</span><span class="tag">1</span></a></div><div class="control"><a class="tags has-addons" href="/tags/%E7%BF%BB%E8%AF%91/"><span class="tag">翻译</span><span class="tag">3</span></a></div><div class="control"><a class="tags has-addons" href="/tags/%E9%9A%8F%E7%AC%94/"><span class="tag">随笔</span><span class="tag">2</span></a></div></div></div></div></div></div><!--!--></div></div></section><footer class="footer"><div class="container"><div class="level"><div class="level-start"><a class="footer-logo is-block mb-2" href="/"><img src="/favicon/logo.svg" alt="温酒写 bug" height="28"></a><p class="is-size-7"><span>&copy; 2022 温酒写 bug</span></p></div><div class="level-end"><div class="field has-addons"><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Creative Commons" href="https://creativecommons.org/"><i class="fab fa-creative-commons"></i></a></p><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Attribution 4.0 International" href="https://creativecommons.org/licenses/by/4.0/"><i class="fab fa-creative-commons-by"></i></a></p></div></div></div></div></footer><script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/moment@2.22.2/min/moment-with-locales.min.js"></script><script src="https://cdn.jsdelivr.net/npm/clipboard@2.0.4/dist/clipboard.min.js" defer></script><script>moment.locale("zh-CN");</script><script>var IcarusThemeSettings = {
+            article: {
+                highlight: {
+                    clipboard: true,
+                    fold: 'unfolded'
+                }
+            }
+        };</script><script src="/js/column.js"></script><script src="/js/animation.js"></script><a id="back-to-top" title="回到顶端" href="javascript:;"><i class="fas fa-chevron-up"></i></a><script src="/js/back_to_top.js" defer></script><!--!--><!--!--><!--!--><script src="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.js" defer></script><script>window.addEventListener("load", () => {
+      window.cookieconsent.initialise({
+        type: "info",
+        theme: "edgeless",
+        static: false,
+        position: "bottom-left",
+        content: {
+          message: "此网站使用Cookie来改善您的体验。",
+          dismiss: "知道了！",
+          allow: "允许使用Cookie",
+          deny: "拒绝",
+          link: "了解更多",
+          policy: "Cookie政策",
+          href: "https://www.cookiesandyou.com/",
+        },
+        palette: {
+          popup: {
+            background: "#edeff5",
+            text: "#838391"
+          },
+          button: {
+            background: "#4b81e8"
+          },
+        },
+      });
+    });</script><script src="https://cdn.jsdelivr.net/npm/lightgallery@1.10.0/dist/js/lightgallery.min.js" defer></script><script src="https://cdn.jsdelivr.net/npm/justifiedGallery@3.8.1/dist/js/jquery.justifiedGallery.min.js" defer></script><script>window.addEventListener("load", () => {
+            if (typeof $.fn.lightGallery === 'function') {
+                $('.article').lightGallery({ selector: '.gallery-item' });
+            }
+            if (typeof $.fn.justifiedGallery === 'function') {
+                if ($('.justified-gallery > p > .gallery-item').length) {
+                    $('.justified-gallery > p > .gallery-item').unwrap();
+                }
+                $('.justified-gallery').justifiedGallery();
+            }
+        });</script><!--!--><!--!--><!--!--><!--!--><!--!--><script src="/js/main.js" defer></script><div class="searchbox"><div class="searchbox-container"><div class="searchbox-header"><div class="searchbox-input-container"><input class="searchbox-input" type="text" placeholder="想要查找什么..."></div><a class="searchbox-close" href="javascript:;">×</a></div><div class="searchbox-body"></div></div></div><script src="/js/insight.js" defer></script><script>document.addEventListener('DOMContentLoaded', function () {
+            loadInsight({"contentUrl":"/content.json"}, {"hint":"想要查找什么...","untitled":"(无标题)","posts":"文章","pages":"页面","categories":"分类","tags":"标签"});
+        });</script></body></html>
